@@ -16,7 +16,7 @@ program wrapper
     ear(i) = Emin * (Emax/Emin)**(real(i)/real(ne))
   end do
 
-! Call reldisk (relativistic effects)
+! Call super_kerr
   sk_param(1)  = 1.0   !a        " "  spin
   sk_param(2)  = 50.0   !inc      deg  inclination
   sk_param(3)  = 10.0  !M        Msun Black hole mass
@@ -119,6 +119,7 @@ subroutine super_kerr(ear,ne,param,ifl,photar)
   aprev = a
   mu0prev = mu0
 
+
 ! Loop through inner relativistic grid
   dNbydE = 0.0
   do j = 1,nphi
@@ -137,7 +138,7 @@ subroutine super_kerr(ear,ne,param,ifl,photar)
                  dE         =       ( earc(k) - earc(k-1) )
                  Eem        =  E / g
                  dEem       = dE / g
-                 dNbydE(k) = dNbydE(k) + g**3 * kT**4/pi * mybbody(kTcol,Eem,dEem) * dOmega(i,j) / dE
+                 dNbydE(k) = dNbydE(k) + g**3 * kT**4 * mybbody(kTcol,Eem,dEem) * dOmega(i,j) / dE
               end do
            end if
        end if
@@ -160,7 +161,7 @@ subroutine super_kerr(ear,ne,param,ifl,photar)
               dE        = earc(k) - earc(k-1)
               Eem        =  E / g
               dEem       = dE / g
-              dNbydE(k) = dNbydE(k) + g**3 * kT**4/pi * mybbody(kTcol,Eem,dEem) * dOmegan(i,j) / dE
+              dNbydE(k) = dNbydE(k) + g**3 * kT**4 * mybbody(kTcol,Eem,dEem) * dOmegan(i,j) / dE
            end do
         end if
      end do
@@ -178,7 +179,7 @@ subroutine super_kerr(ear,ne,param,ifl,photar)
   end do
   
 ! Re-normalise so that norm = [ 1 / Dkpc ]^2
-  photar = 0.4679 * m**2 * photar
+  photar = 0.467842078 * m**2 * photar
   
   return
 end subroutine super_kerr
