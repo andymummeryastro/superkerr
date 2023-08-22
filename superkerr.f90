@@ -1,49 +1,60 @@
 program wrapper
 
-! gfortran amodules.f90 super_kerr.f90
+  ! gfortran amodules.f90 super_kerr.f90
+    
+    implicit none
+    integer ne,i,ifl,j,jmax
+    parameter (ne=400,jmax=8)
+    real Emax,Emin,ear(0:ne),param(1),photar(ne),E,dE
+    real Ed,dEd,ratio(ne),t0,t1
+    real norm_super_kerr, sk_param(4)
+    integer :: num_args, ix
+    character(len=12), dimension(:), allocatable :: args
+    real D_kpc
   
-  implicit none
-  integer ne,i,ifl,j,jmax
-  parameter (ne=400,jmax=8)
-  real Emax,Emin,ear(0:ne),param(1),photar(ne),E,dE
-  real Ed,dEd,ratio(ne),t0,t1
-  real norm_super_kerr, sk_param(4)
+  ! Set energy grid
+    Emax  = 50.0
+    Emin  = 0.01
+    do i = 0,ne
+      ear(i) = Emin * (Emax/Emin)**(real(i)/real(ne))
+    end do
   
-! Set energy grid
-  Emax  = 50.0
-  Emin  = 0.01
-  do i = 0,ne
-    ear(i) = Emin * (Emax/Emin)**(real(i)/real(ne))
-  end do
-
-! Call super_kerr
-  sk_param(1)  = 1.0   !a        " "  spin
-  sk_param(2)  = 50.0   !inc      deg  inclination
-  sk_param(3)  = 10.0  !M        Msun Black hole mass
-  sk_param(4)  = 0.057  !mdot     Edd  Accretion rate as a fraction of Eddington
+    num_args = command_argument_count()
+    allocate(args(num_args))  ! I've omitted checking the return status of the allocation 
   
-  ! Important note: I am defining the Eddington mass accretion rate to be
-  ! \dot M_edd = L_edd/c^2 = 1.26e31/c^2 * (M_bh/M_sun) [kg/s]. 
-  ! or explicitly 
-  ! \dot M_edd = 0.1402 (M_bh/M_sun) [10^15 kg/s]. 
-
-  call super_kerr(ear,ne,sk_param,ifl,photar)
-  norm_super_kerr = 1e-2 !Assuming D = 10 kpc, norm = 1/10^2 = 1e-2
+    do ix = 1, num_args
+        call get_command_argument(ix,args(ix))
+    end do
   
-! Write out model output
-  do i = 1,ne
-     E  = 0.5 * ( ear(i) + ear(i-1) )
-     dE =         ear(i) - ear(i-1)
-     write(99,*)E,norm_super_kerr*E**2*photar(i)/dE
-  end do
+    read( args(1), '(f10.0)' )  sk_param(1)   !a     " "     spin
+    read( args(2), '(f10.0)' )  sk_param(2)   !inc   deg     inclination
+    read( args(3), '(f10.0)' )  sk_param(3)   !M     Msun    Black hole mass
+    read( args(4), '(f10.0)' )  sk_param(4)   !mdot  Edd     Accrertion rate   
+    read( args(5), '(f10.0)' )  D_kpc         !source distance in kilo-parsec
+    ! Important note: I am defining the Eddington mass accretion rate to be
+    ! \dot M_edd = L_edd/c^2 = 1.26e31/c^2 * (M_bh/M_sun) [kg/s]. 
+    ! or explicitly 
+    ! \dot M_edd = 0.1402 (M_bh/M_sun) [10^15 kg/s]. 
   
-end program wrapper
-
+  ! Call Super Kerr!
+    call superkerr(ear,ne,sk_param,ifl,photar)
+    norm_super_kerr = 1/D_kpc**2.0 
+    
+  ! Write out model output
+    open(99, file = 'sk_output.dat', status = 'new')
+    do i = 1,ne
+       E  = 0.5 * ( ear(i) + ear(i-1) )
+       dE =         ear(i) - ear(i-1)
+       write(99,*)E, norm_super_kerr*E**2*photar(i)/dE
+    end do
+    close(99) 
+  end program wrapper
+  
 ! Can't use an include for compiling within XSPEC
 ! include 'amodules.f90'
 
 !=======================================================================
-subroutine super_kerr(ear,ne,param,ifl,photar)
+subroutine superkerr(ear,ne,param,ifl,photar)
 ! Calculates observed disk spectrum
   use internal_grids
   implicit none
@@ -182,7 +193,7 @@ subroutine super_kerr(ear,ne,param,ifl,photar)
   photar = 0.467842078 * m**2 * photar
   
   return
-end subroutine super_kerr
+end subroutine superkerr
 !=======================================================================
 
 

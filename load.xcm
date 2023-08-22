@@ -1,2 +1,2 @@
-initpackage super_kerr lmodel.dat .
-lmod super_kerr .
+initpackage superkerr lmodel.dat .
+lmod superkerr .
