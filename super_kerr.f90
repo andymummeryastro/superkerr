@@ -249,7 +249,7 @@ function kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b)
   end if
   if (a .eq. 1.0) then
     if (x .gt. 1.0) then
-      br1 = dble((1.0 - (3.0)/(2.0*x)*log(x) + 3.0/(2.0*x)*log(x+2.0) - j0/x ))
+      br1 = dble((1.0 - (3.0)/(2.0*x)*log(x) + 3.0/(2.0*x)*log(x+2.0) - j0*xI/x ))
       br1 = dble( br1**0.25 )  
       br2 = dble( (1.0/(1.0 - 3.0/(x**2) + 2.0*a/(x**3)))**0.25 )
     else
@@ -258,7 +258,7 @@ function kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b)
     end if 
   end if
   if (a .eq. -1.0) then
-    br1 = dble((1.0 + (3.0)/(2.0*x)*log(x) - 3.0/(2.0*x)*log(x-2.0) - j0/x ))
+    br1 = dble((1.0 + (3.0)/(2.0*x)*log(x) - 3.0/(2.0*x)*log(x-2.0) - j0*xI/x ))
     br1 = dble( br1**0.25 )  
     br2 = dble( (1.0/(1.0 - 3.0/(x**2) + 2.0*a/(x**3)))**0.25 )
   end if 
