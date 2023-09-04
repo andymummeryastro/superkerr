@@ -7,10 +7,11 @@ program wrapper
     parameter (ne=400,jmax=8)
     real Emax,Emin,ear(0:ne),param(1),photar(ne),E,dE
     real Ed,dEd,ratio(ne),t0,t1
-    real norm_super_kerr, sk_param(4)
+    real norm_super_kerr, sk_param(5)
     integer :: num_args, ix
     character(len=12), dimension(:), allocatable :: args
     real D_kpc
+    double precision delta_j 
   
   ! Set energy grid
     Emax  = 50.0
@@ -35,7 +36,8 @@ program wrapper
     ! \dot M_edd = L_edd/c^2 = 1.26e31/c^2 * (M_bh/M_sun) [kg/s]. 
     ! or explicitly 
     ! \dot M_edd = 0.1402 (M_bh/M_sun) [10^15 kg/s]. 
-  
+   delta_j = 0.0 
+   sk_param(5) = delta_j! Vanishing ISCO stress. 
   ! Call Super Kerr!
     call superkerr(ear,ne,sk_param,ifl,photar)
     norm_super_kerr = 1/D_kpc**2.0 
@@ -59,14 +61,16 @@ subroutine superkerr(ear,ne,param,ifl,photar)
   use internal_grids
   implicit none
   integer ne,ifl,i,j,k
-  real ear(0:ne),param(4),photar(ne)
+  real ear(0:ne),param(5),photar(ne)
   double precision a,inc,m,mdot,pi,rin,rout,mu0
   double precision Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale
   double precision chi, psi, c_a, r_b, i_b! super-extremal parameters
+  double precision delta_j ! ISCO boundary condition 
   double precision rnmin,rnmax,d,rfunc,disco,mudisk,re,kT_sk
   double precision alpha(nro,nphi),beta(nro,nphi),dOmega(nro,nphi)
   double precision alphan(nro,nphi),betan(nro,nphi),dOmegan(nro,nphi)
   double precision g,dlgfac,fcol,kT,phie
+  real dNdE_! NAN killer. 
   real mybbody,E,dE,kTcol,dNbydE(nec),Eem,dEem
   logical needtrace
   pi  = acos(-1.d0)
@@ -77,6 +81,7 @@ subroutine superkerr(ear,ne,param,ifl,photar)
   inc     = dble( param(2) ) * pi / 180.d0  !Inclination (degrees)
   m       = dble( param(3) )                !Black hole mass (solar)
   mdot    = dble( param(4) )                !Mass accretion rate (Eddington)
+  delta_j = dble( param(5) )                !ISCO stress parameter
   ! Important note: I am defining the Eddington mass accretion rate to be
   ! \dot M_edd = L_edd/c^2 = 1.26E31/c^2 * (M_bh/M_sun) [kg/s]. 
   ! or explicitly 
@@ -139,7 +144,7 @@ subroutine superkerr(ear,ne,param,ifl,photar)
           re = re1(i,j)
            if( re .gt. rin .and. re .le. rout )then
               !Calclulate temperature
-              kT = kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b)
+              kT = kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b,delta_j)
               !Calculate colour-temperature
               kTcol = kT * fcol(kT)
               !Calculate g-factor
@@ -149,7 +154,12 @@ subroutine superkerr(ear,ne,param,ifl,photar)
                  dE         =       ( earc(k) - earc(k-1) )
                  Eem        =  E / g
                  dEem       = dE / g
-                 dNbydE(k) = dNbydE(k) + g**3 * kT**4 * mybbody(kTcol,Eem,dEem) * dOmega(i,j) / dE
+                 dNdE_      = g**3 * kT**4 * mybbody(kTcol,Eem,dEem) * dOmega(i,j) / dE
+                 if (dNdE_ .eq. dNdE_) then 
+                  dNbydE(k) = dNbydE(k) + dNdE_
+                 else
+                  dNbydE(k) = dNbydE(k)
+                 end if 
               end do
            end if
        end if
@@ -162,7 +172,7 @@ subroutine superkerr(ear,ne,param,ifl,photar)
         call drandphithick(alphan(i,j),betan(i,j),mu0,mudisk,re,phie)
         if( re .gt. rin .and. re .le. rout )then
            !Calclulate temperature
-           kT = kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b)
+           kT = kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b,delta_j)
            !Calculate colour-temperature
            kTcol = kT * fcol(kT)
            !Calculate g-factor
@@ -172,7 +182,12 @@ subroutine superkerr(ear,ne,param,ifl,photar)
               dE        = earc(k) - earc(k-1)
               Eem        =  E / g
               dEem       = dE / g
-              dNbydE(k) = dNbydE(k) + g**3 * kT**4 * mybbody(kTcol,Eem,dEem) * dOmegan(i,j) / dE
+              dNdE_      = g**3 * kT**4 * mybbody(kTcol,Eem,dEem) * dOmega(i,j) / dE
+              if (dNdE_ .eq. dNdE_) then 
+               dNbydE(k) = dNbydE(k) + dNdE_
+              else
+               dNbydE(k) = dNbydE(k)
+              end if 
            end do
         end if
      end do
@@ -236,7 +251,7 @@ end subroutine myinterp
 
 
 !-----------------------------------------------------------------------
-function kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b)
+function kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b,delta_j)
 ! mdot in units of 10^{15} kg s^{-1}
 ! m in units of solar
   implicit none
@@ -244,23 +259,27 @@ function kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b)
   double precision chi,psi,c_a,r_b,i_b
   double precision mdot,m
   double precision x,br1,br2
+  double precision delta_j 
+
   x    = sqrt(re)
 
   if (abs(a) .lt. 1.0) then
-    br1 = dble((1.0 - (3.0*a)/(2.0*x)*log(x) + Ca/x*log(x-xa) + Cb/x*log(x-xb) + Cg/x*log(x-xg) - j0*xI/x)**0.25)
+    br1 = dble((1.0 - (3.0*a)/(2.0*x)*log(x) + Ca/x*log(x-xa) + Cb/x*log(x-xb) + Cg/x*log(x-xg) - (1-delta_j)*j0*xI/x)**0.25)
     br2 = dble( (1.0/(1.0 - 3.0/(x**2) + 2.0*a/(x**3)))**0.25 )
   end if
   if (abs(a) .gt. 1.0) then
     br1 = dble((1.0 - (3.0*a)/(2.0*x)*log(x) ))
     br1 = dble( br1 + c_a/x * log(x-chi) + r_b/x * log((x+0.5*chi)**2.0+psi**2.0) )
     br1 = dble( br1 +  4.0 * i_b/x * atan(psi/(x+0.5*chi + ((x+0.5*chi)**2.0+psi**2.0)**0.5) ) )
-    br1 = dble( br1 - j0*xI/x )
+    br1 = dble( br1 - (1-delta_j)*j0*xI/x )
     br1 = dble( br1**0.25 )
     br2 = dble( (1.0/(1.0 - 3.0/(x**2) + 2.0*a/(x**3)))**0.25 )
   end if
   if (a .eq. 1.0) then
     if (x .gt. 1.0) then
       br1 = dble((1.0 - (3.0)/(2.0*x)*log(x) + 3.0/(2.0*x)*log(x+2.0) - j0*xI/x ))
+      !Note that finite ISCO stress is impossible for a = 1 owing to the coincidence of 
+      !the ISCO and event horizon. Event horizon stresses must be precisely 0 by causality. 
       br1 = dble( br1**0.25 )  
       br2 = dble( (1.0/(1.0 - 3.0/(x**2) + 2.0*a/(x**3)))**0.25 )
     else
@@ -269,7 +288,7 @@ function kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b)
     end if 
   end if
   if (a .eq. -1.0) then
-    br1 = dble((1.0 + (3.0)/(2.0*x)*log(x) - 3.0/(2.0*x)*log(x-2.0) - j0*xI/x ))
+    br1 = dble((1.0 + (3.0)/(2.0*x)*log(x) - 3.0/(2.0*x)*log(x-2.0) - (1-delta_j)*j0*xI/x ))
     br1 = dble( br1**0.25 )  
     br2 = dble( (1.0/(1.0 - 3.0/(x**2) + 2.0*a/(x**3)))**0.25 )
   end if 
