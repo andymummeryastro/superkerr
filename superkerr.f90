@@ -114,7 +114,7 @@ subroutine superkerr(ear,ne,param,ifl,photar)
   !Assumed Mdot is in units of 10^{15} kg/s
   
 ! Set up full GR grid
-  rnmax = 300d0                            !Sets outer boundary of full GR grid
+  rnmax = 300d0                           !Sets outer boundary of full GR grid
   rnmin = rfunc(a,mu0)                    !Sets inner boundary of full GR grid
   call impactgrid(rnmin,rnmax,mu0,nro,nphi,alpha,beta,dOmega)
   d     = max( 1.0d4 , 2.0d2 * rnmax**2 ) !Sensible distance to BH  
@@ -195,7 +195,6 @@ subroutine superkerr(ear,ne,param,ifl,photar)
 
 ! Rebin onto input grid
   call myinterp(nec,earc,dNbydE,ne,ear,photar)
-!  rebinE(earc,dNbydE,nec,ear,photar,ne)
 
 ! Multiply by dE
   do i = 1,ne
@@ -548,25 +547,31 @@ end function dISCO
 
 !-----------------------------------------------------------------------
 function rfunc(a,mu0)
-! Sets minimum rn to use for impact parameter grid depending on mu0
-! This is just an analytic function based on empirical calculations:
-! I simply set a=0.998, went through the full range of mu0, and then
-! calculated the lowest rn value for which there was a disk crossing.
-! The function used here makes sure the calculated rnmin is always
-! slightly lower than the one required.
-  implicit none
-  double precision rfunc,mu0,a
-  if( a .gt. 0.8 )then
-    rfunc = 1.5d0 + 0.5d0 * mu0**5.5d0
-    rfunc = min( rfunc , -0.1d0 + 5.6d0*mu0 )
-    rfunc = max( 0.1d0 , rfunc )
-  else
-    rfunc = 3.0d0 + 0.5d0 * mu0**5.5d0
-    rfunc = min( rfunc , -0.2d0 + 10.0d0*mu0 )
-    rfunc = max( 0.1d0 , rfunc )
-  end if
-  end function rfunc
-!-----------------------------------------------------------------------
+  ! Sets minimum rn to use for impact parameter grid depending on mu0
+  ! This is just an analytic function based on empirical calculations:
+  ! I simply set a=0.998, went through the full range of mu0, and then
+  ! calculated the lowest rn value for which there was a disk crossing.
+  ! The function used here makes sure the calculated rnmin is always
+  ! slightly lower than the one required.
+  !
+  ! Lack of event horizon makes r_min much smaller for a > 1.  Hard coded
+  ! Simple lower bound for now. 
+    implicit none
+    double precision rfunc,mu0,a
+    if (a .gt. 1.0) then 
+      rfunc = 0.01   
+    else if( a .gt. 0.8 )then
+      rfunc = 1.5d0 + 0.5d0 * mu0**5.5d0
+      rfunc = min( rfunc , -0.1d0 + 5.6d0*mu0 )
+      rfunc = max( 0.1d0 , rfunc )
+    else
+      rfunc = 3.0d0 + 0.5d0 * mu0**5.5d0
+      rfunc = min( rfunc , -0.2d0 + 10.0d0*mu0 )
+      rfunc = max( 0.1d0 , rfunc )
+    end if
+    end function rfunc
+  !-----------------------------------------------------------------------
+  
 
 
 !-----------------------------------------------------------------------
@@ -633,68 +638,6 @@ end subroutine getrgrid
       phi = atan2( sinphi , mu )
       return
       end subroutine drandphithick
-!-----------------------------------------------------------------------
-
-
-!-----------------------------------------------------------------------
-      subroutine rebinE(earx,px,nex,ear,p,ne)
-      !General rebinning scheme, should be nice and robust - BUT IT FUCKING ISN'T
-      !i,nex,earx,px = input
-      !j,ne,ear,p    = output
-      implicit none
-      integer i,nex,j,ne
-      real earx(0:nex),ear(0:ne),px(nex),p(ne),Ehigh,Elow,upper,lower
-      real FRAC,Ej,Ei,pi,Ei2,pi2,grad,cons
-      logical interp
-      i = 1
-      do j = 1,ne
-        p(j) = 0.0
-        Ehigh = ear(j)
-        Elow  = ear(j-1)
-        do while( earx(i) .le. Elow .and. i .lt. nex )
-          i = i + 1
-        end do
-        interp = .true.
-        do while(earx(i-1).lt.Ehigh.and.i.lt.nex)
-          lower = MAX( earx(i-1) , Elow  )
-          upper = MIN( earx(i)   , Ehigh )
-          FRAC  = (upper-lower) / ( Ehigh - Elow )
-          p(j)  = p(j) + px(i) * FRAC
-          i = i + 1
-          interp = .false.
-        end do
-        if( interp )then
-          !Work out if it's ok to interpolate
-          if( Elow  .ge. earx(nex) ) interp = .false.
-          if( Ehigh .le. earx(0)   ) interp = .false.
-          if( i     .ge. nex-1     ) interp = .false.
-        end if
-        if( interp )then
-          !write(*,*)"need to interpolate!"
-          !p(j) is interpolation between px(i) and px(i+1)
-          !unless i=nex, in which case p(j) = px(i)
-          Ej = 0.5 * ( Ehigh + Elow )        !Centre of newbin
-          Ei = 0.5 * ( earx(i+1) + earx(i) ) !Centre of one oldbin
-          pi = px(i+1)         !Value at bin centre
-          if( Ei .eq. Ej )then
-             p(j) = pi
-          else
-            if( Ei .gt. Ej )then
-              Ei2 = 0.5 * (earx(i) + earx(i-1) )
-              pi2 = px(i)
-            else
-              Ei2 = 0.5 * (earx(i+2) + earx(i+1) )
-              pi2 = px(+2)
-            end if
-            grad = ( pi - pi2 ) / ( Ei - Ei2 )
-            cons = 0.5 * ( pi + pi2 - grad*(Ei+Ei2) )
-            p(j) = grad * Ej + cons
-          end if
-        end if
-        if( i .gt. 2 ) i = i - 1
-      end do
-      RETURN
-      END
 !-----------------------------------------------------------------------
 
 
