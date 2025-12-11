@@ -69,9 +69,9 @@ subroutine superkerr(ear,ne,param,ifl,photar)
   double precision rnmin,rnmax,d,rfunc,disco,mudisk,re,kT_sk
   double precision alpha(nro,nphi),beta(nro,nphi),dOmega(nro,nphi)
   double precision alphan(nro,nphi),betan(nro,nphi),dOmegan(nro,nphi)
-  double precision g,dlgfac,fcol,kT,phie
+  double precision g,dlgfac,kT,phie
   real dNdE_! NAN killer. 
-  real mybbody,E,dE,kTcol,dNbydE(nec),Eem,dEem
+  real mybbody,E,dE,kTcol,dNbydE(nec),Eem,dEem,colour_temp
   logical needtrace
   pi  = acos(-1.d0)
   ifl = 1
@@ -146,7 +146,7 @@ subroutine superkerr(ear,ne,param,ifl,photar)
               !Calclulate temperature
               kT = kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b,delta_j)
               !Calculate colour-temperature
-              kTcol = kT * fcol(kT)
+              kTcol = colour_temp(kT)
               !Calculate g-factor
               g = dlgfac( a,mu0,alpha(i,j),re )
               do k = 1,nec
@@ -174,7 +174,7 @@ subroutine superkerr(ear,ne,param,ifl,photar)
            !Calclulate temperature
            kT = kT_sk(re,a,Ca,Cb,Cg,xa,xb,xg,j0,xI,Tscale,mdot,m,chi,psi,c_a,r_b,i_b,delta_j)
            !Calculate colour-temperature
-           kTcol = kT * fcol(kT)
+           kTcol = colour_temp(kT)
            !Calculate g-factor
            g = dlgfac( a,mu0,alphan(i,j),re )
            do k = 1,nec
@@ -210,6 +210,22 @@ subroutine superkerr(ear,ne,param,ifl,photar)
 end subroutine superkerr
 !=======================================================================
 
+
+!-----------------------------------------------------------------------
+function colour_temp(kT)
+  implicit none
+  real colour_temp
+  double precision kT
+  if( kT .lt. 2.585d-3 )then
+     colour_temp = kT
+  else if( kT .lt. 8.617e-3 )then
+     colour_temp = kT * ( kT / 2.585d-3 )**0.833
+  else
+     colour_temp = kT * ( 72.d0 / kT )**(1.d0/9.d0)
+  end if
+  return
+end function colour_temp
+!-----------------------------------------------------------------------
 
 
 
@@ -368,24 +384,6 @@ end subroutine Tconstants
 !-----------------------------------------------------------------------
 
 
-
-
-!-----------------------------------------------------------------------
-function fcol(T)
-! fcol = colour-temperature correction
-! T    = true temperature in keV
-  implicit none
-  double precision fcol,T
-  if( T .lt. 2.585d-3 )then
-     fcol = 1.d0
-  else if( T .lt. 8.617e-3 )then
-     fcol = ( T / 2.585d-3 )**0.833
-  else
-     fcol = ( 72.d0 / T )**(1.d0/9.d0)
-  end if
-  return
-end function fcol
-!-----------------------------------------------------------------------
 
 
 
